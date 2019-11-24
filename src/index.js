@@ -3,11 +3,12 @@ require('./index.css')
 const { getPosts } = require('./api')
 const { renderPosts, renderStatus } = require('./ui')
 const { combineLatest, timer, fromEvent } = require('rxjs');
-const { switchMap, map, tap, startWith } = require('rxjs/operators');
+const { switchMap, map, tap, startWith, share } = require('rxjs/operators');
 
 const posts$ = timer(0, 5000).pipe(
   switchMap(() => getPosts()),
-  tap(posts => console.log('Posts: ', posts))
+  tap(posts => console.log('Posts: ', posts)),
+  share()
 );
 
 const filter$ = fromEvent(document.getElementById('filter'), 'input').pipe(
