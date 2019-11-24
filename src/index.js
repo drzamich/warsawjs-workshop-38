@@ -8,7 +8,10 @@ const { switchMap, map, tap, startWith, share } = require('rxjs/operators');
 const posts$ = timer(0, 5000).pipe(
   switchMap(() => getPosts()),
   tap(posts => console.log('Posts: ', posts)),
-  share()
+  share(),
+  tap({
+    error: err => console.log('ERROR!', err)
+  }),
 );
 
 const filter$ = fromEvent(document.getElementById('filter'), 'input').pipe(
@@ -24,6 +27,10 @@ const filteredPosts$ = combineLatest(posts$, filter$).pipe(
 const status$ = posts$.pipe(
   map(posts => `Fetched ${posts.length} posts.`)
 );
+
+const errorStatus$ = posts$.subscribe({
+  error: err => renderStatus(err)
+})
 
 filteredPosts$.subscribe(renderPosts)
 status$.subscribe(renderStatus)
