@@ -2,7 +2,7 @@ require('./index.css')
 const { getPosts } = require('./api')
 const { renderPosts, renderStatus } = require('./ui')
 const { timer, fromEvent, combineLatest, Subject, of, merge } = require('rxjs')
-const { switchMap, map, tap, startWith, share, retryWhen, delay } = require('rxjs/operators')
+const { switchMap, map, tap, startWith, share, retryWhen, delay, scan } = require('rxjs/operators')
 
 const error$ = new Subject()
 
@@ -38,8 +38,22 @@ const status$ = merge(fetchStatus$$, errorStatus$$).pipe(
   switchMap(status$$ => status$$)
 )
 
+const price$ = timer(0, 1000).pipe(
+  scan((acc) => Math.round(acc + Math.random() * 60 - 30), 150),
+)
+
+const priceDelayed$ = price$.pipe(
+  delay(5000)
+)
+
+const combinedPrices$ = combineLatest(price$, priceDelayed$)
+
+combinedPrices$.pipe(
+  map(([price, delayedPrice]) => `${price} (${price-delayedPrice})`)
+).subscribe(renderStatus)
+
 filteredPosts$.subscribe(renderPosts)
-status$.subscribe(renderStatus)
+// status$.subscribe(renderStatus)
 function filterPosts(posts, filter) {
   const filterLowerCase = filter.toLowerCase()
   return posts.filter(post => post.title.toLowerCase().includes(filterLowerCase))
