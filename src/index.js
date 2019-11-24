@@ -1,46 +1,46 @@
 require('./index.css')
-
 const { getPosts } = require('./api')
 const { renderPosts, renderStatus } = require('./ui')
-const { combineLatest, timer, fromEvent, EMPTY } = require('rxjs');
-const { switchMap, map, tap, startWith, share, retry, retryWhen, delay, catchError } = require('rxjs/operators');
+const { timer, fromEvent, combineLatest, Subject, of, merge } = require('rxjs')
+const { switchMap, map, tap, startWith, share, retryWhen, delay } = require('rxjs/operators')
 
+const error$ = new Subject()
 
-const posts$ = timer(0, 5000).pipe(
+const post$ = timer(0, 5000).pipe(
   switchMap(() => getPosts()),
-  tap(posts => console.log('Posts: ', posts)),
-  tap({
-    error: err => console.log('ERROR!', err)
-  }),
-  // catchError(error => { renderStatus(error); return EMPTY}),
-  retryWhen(error$ => error$.pipe(
-    tap(() => console.log('Before delay')),
-    delay(1000)),
-    tap(() => console.log('After delay')),
-  ),
+  retryWhen(errorObs$ => errorObs$.pipe(
+    tap(x => error$.next(x)),
+    delay(1000),
+  )),
   share(),
-);
+)
 
 const filter$ = fromEvent(document.getElementById('filter'), 'input').pipe(
   map(event => event.target.value),
   startWith(''),
-  tap(filter => console.log('Filter: ', filter))
-);
-
-const filteredPosts$ = combineLatest(posts$, filter$).pipe(
-  map(([posts, filter]) => filterPosts(posts, filter))
 )
 
-const status$ = posts$.pipe(
-  switchMap((posts) => timer(0, 1000).pipe(
-    map(time => `Fetched ${posts.length} posts ${time}s ago.`)
+const filteredPosts$ = combineLatest(post$, filter$).pipe(
+  map(([posts, filter]) => filterPosts(posts, filter)),
+)
+
+const fetchStatus$$ = post$.pipe(
+  map(posts => timer(0,1000).pipe(
+    map(time => `Fetched ${posts.length} posts in ${time}s.`),
   ))
-);
+)
+
+const errorStatus$$ = error$.pipe(
+  map(err => of(`Error! ${err}`))
+)
+
+const status$ = merge(fetchStatus$$, errorStatus$$).pipe(
+  switchMap(status$$ => status$$)
+)
 
 filteredPosts$.subscribe(renderPosts)
 status$.subscribe(renderStatus)
-
-
-const filterPosts = (posts,filter) => (
-  posts.filter(post => post.title.toLowerCase().includes(filter.toLowerCase()))
-);
+function filterPosts(posts, filter) {
+  const filterLowerCase = filter.toLowerCase()
+  return posts.filter(post => post.title.toLowerCase().includes(filterLowerCase))
+}
