@@ -1,6 +1,33 @@
 require('./index.css')
 
 const { getPosts } = require('./api')
-const { renderPosts } = require('./ui')
+const { renderPosts, renderStatus } = require('./ui')
+const { combineLatest, timer, fromEvent } = require('rxjs');
+const { switchMap, map, tap, startWith } = require('rxjs/operators');
 
-getPosts().then(renderPosts)
+const posts$ = timer(0, 5000).pipe(
+  switchMap(() => getPosts()),
+  tap(posts => console.log('Posts: ', posts))
+);
+
+const filter$ = fromEvent(document.getElementById('filter'), 'input').pipe(
+  map(event => event.target.value),
+  startWith(''),
+  tap(filter => console.log('Filter: ', filter))
+);
+
+const filteredPosts$ = combineLatest(posts$, filter$).pipe(
+  map(([posts, filter]) => filterPosts(posts, filter))
+)
+
+const status$ = posts$.pipe(
+  map(posts => `Fetched ${posts.length} posts.`)
+);
+
+filteredPosts$.subscribe(renderPosts)
+status$.subscribe(renderStatus)
+
+
+const filterPosts = (posts,filter) => (
+  posts.filter(post => post.title.toLowerCase().includes(filter.toLowerCase()))
+);
